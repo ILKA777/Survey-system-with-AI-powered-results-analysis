@@ -10,3 +10,5 @@ https://docs.google.com/spreadsheets/d/1BkcZKUAzvsXprzzqZeOAhhJ30pCN3Rwnp7uRECx3
 5. Шаблоны опросов
 6. Ссылки и qr-коды для опросов
 7. Возможность голосовать по ссылке без логина
+
+Запуск на локалхосте: npm run dev
