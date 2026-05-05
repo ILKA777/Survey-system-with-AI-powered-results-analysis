@@ -1,98 +1,163 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePoll } from '../context/PollContext'
+import { generatePoll } from '../api/ai.js'
 
 export default function CreatePoll() {
-  const { addPoll } = usePoll()
+  const { addPoll, templates, useTemplate } = usePoll()
   const navigate = useNavigate()
+  const [tab, setTab] = useState('manual')
   const [title, setTitle] = useState('')
-  const [steps, setSteps] = useState([{ question: '', type: 'closed', options: ['', ''] }])
+  const [pages, setPages] = useState([{ pageOrder: 1, question: '', questionType: 'SINGLE_CHOICE', options: ['', ''], required: true }])
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const addStep = () => setSteps([...steps, { question: '', type: 'closed', options: ['', ''] }])
-  const removeStep = (i) => { if (steps.length > 1) setSteps(steps.filter((_, idx) => idx !== i)) }
+  const addPage = () => setPages(prev => [...prev, {
+    pageOrder: prev.length + 1, question: '', questionType: 'SINGLE_CHOICE', options: ['', ''], required: true
+  }])
 
-  const updateStep = (i, field, value) => {
-    const newSteps = [...steps]
-    newSteps[i][field] = value
-    if (field === 'type' && value === 'open') newSteps[i].options = []
-    else if (field === 'type' && value === 'closed') newSteps[i].options = ['', '']
-    setSteps(newSteps)
+  const removePage = (i) => { if (pages.length > 1) setPages(prev => prev.filter((_, idx) => idx !== i)) }
+
+  const updatePage = (i, field, value) => {
+    setPages(prev => prev.map((p, idx) => {
+      if (idx !== i) return p
+      const updated = { ...p, [field]: value }
+      if (field === 'questionType' && value === 'TEXT') updated.options = []
+      if (field === 'questionType' && value !== 'TEXT' && p.options.length === 0) updated.options = ['', '']
+      return updated
+    }))
   }
 
-  const updateOption = (si, oi, value) => {
-    const newSteps = [...steps]
-    newSteps[si].options[oi] = value
-    setSteps(newSteps)
+  const updateOption = (pi, oi, value) => {
+    setPages(prev => prev.map((p, idx) => {
+      if (idx !== pi) return p
+      const options = [...p.options]
+      options[oi] = value
+      return { ...p, options }
+    }))
   }
 
-  const addOption = (si) => {
-    const newSteps = [...steps]
-    newSteps[si].options.push('')
-    setSteps(newSteps)
+  const addOption = (pi) => setPages(prev => prev.map((p, idx) => idx !== pi ? p : { ...p, options: [...p.options, ''] }))
+  const removeOption = (pi, oi) => setPages(prev => prev.map((p, idx) => idx !== pi ? p : { ...p, options: p.options.length > 2 ? p.options.filter((_, i) => i !== oi) : p.options }))
+
+  const handleManualSubmit = async () => {
+    if (!title.trim()) { setError('Введите название'); return }
+    const cleanPages = pages.map((p, i) => ({
+      ...p,
+      pageOrder: i + 1,
+      options: p.questionType !== 'TEXT' ? p.options.filter(o => o.trim()) : [],
+    }))
+    const poll = await addPoll({ type: 'SURVEY', title, pages: cleanPages })
+    navigate(`/poll/${poll.id}`)
   }
 
-  const removeOption = (si, oi) => {
-    const newSteps = [...steps]
-    if (newSteps[si].options.length > 2) {
-      newSteps[si].options.splice(oi, 1)
-      setSteps(newSteps)
+  const handleAIGenerate = async () => {
+    if (!aiPrompt.trim()) { setError('Введите описание'); return }
+    setAiLoading(true); setError('')
+    try {
+      const generated = await generatePoll(aiPrompt, 'SURVEY', 5)
+      const poll = await addPoll(generated)
+      navigate(`/poll/${poll.id}`)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setAiLoading(false)
     }
   }
 
-  const handleSubmit = () => {
-    if (!title.trim()) return
-    addPoll({
-      type: 'survey',
-      title,
-      steps: steps.map(s => ({
-        ...s,
-        options: s.type === 'closed' ? s.options.filter(o => o.trim()) : []
-      })),
-      responses: [],
-    })
-    navigate('/')
+  const handleUseTemplate = async (tpl) => {
+    const poll = await useTemplate(tpl)
+    navigate(`/poll/${poll.id}`)
   }
 
   return (
     <div className="form-container">
       <h1 className="form-title">Создание опроса</h1>
-      <div className="form-card">
-        <label className="form-label">Название опроса</label>
-        <input className="form-input" placeholder="Например: Ретроспектива спринта" value={title} onChange={e => setTitle(e.target.value)} />
+
+      <div className="tabs">
+        <button className={`tab-btn ${tab === 'manual' ? 'active' : ''}`} onClick={() => setTab('manual')}>Вручную</button>
+        <button className={`tab-btn ${tab === 'ai' ? 'active' : ''}`} onClick={() => setTab('ai')}>AI-генерация</button>
+        <button className={`tab-btn ${tab === 'template' ? 'active' : ''}`} onClick={() => setTab('template')}>Шаблон</button>
       </div>
 
-      {steps.map((step, i) => (
-        <div key={i} className="form-card step-card">
-          <div className="step-header">
-            <span className="form-label" style={{ marginBottom: 0 }}>Вопрос {i + 1}</span>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <select className="form-select" value={step.type} onChange={e => updateStep(i, 'type', e.target.value)}>
-                <option value="closed">С вариантами ответа</option>
-                <option value="open">Открытый вопрос</option>
-              </select>
-              {steps.length > 1 && <button className="btn-remove" onClick={() => removeStep(i)}>×</button>}
-            </div>
+      {error && <p style={{ color: 'var(--red)', fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
+
+      {tab === 'manual' && (
+        <>
+          <div className="form-card">
+            <label className="form-label">Название опроса</label>
+            <input className="form-input" placeholder="Ретроспектива спринта" value={title} onChange={e => setTitle(e.target.value)} />
           </div>
-          <input className="form-input" placeholder="Введите вопрос" value={step.question} onChange={e => updateStep(i, 'question', e.target.value)} />
 
-          {step.type === 'closed' && (
-            <div>
-              <label className="form-label" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Варианты ответа</label>
-              {step.options.map((opt, oi) => (
-                <div key={oi} className="option-row">
-                  <input className="form-input" placeholder={`Вариант ${oi + 1}`} value={opt} onChange={e => updateOption(i, oi, e.target.value)} />
-                  {step.options.length > 2 && <button className="btn-remove" onClick={() => removeOption(i, oi)}>×</button>}
+          {pages.map((page, i) => (
+            <div key={i} className="form-card step-card">
+              <div className="step-header">
+                <span className="form-label" style={{ marginBottom: 0 }}>Вопрос {i + 1}</span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <select className="form-select" value={page.questionType} onChange={e => updatePage(i, 'questionType', e.target.value)}>
+                    <option value="SINGLE_CHOICE">Варианты ответа</option>
+                    <option value="TEXT">Открытый ответ</option>
+                  </select>
+                  {pages.length > 1 && <button className="btn-remove" onClick={() => removePage(i)}>×</button>}
                 </div>
-              ))}
-              <button className="btn-add" onClick={() => addOption(i)}>+ Добавить вариант</button>
-            </div>
-          )}
-        </div>
-      ))}
+              </div>
+              <input className="form-input" placeholder="Введите вопрос" value={page.question} onChange={e => updatePage(i, 'question', e.target.value)} />
 
-      <button className="btn-add" onClick={addStep} style={{ marginBottom: '24px', fontSize: '15px' }}>+ Добавить вопрос</button>
-      <br />
-      <button className="btn-primary btn-large" onClick={handleSubmit}>Создать опрос</button>
+              {page.questionType !== 'TEXT' && (
+                <div>
+                  <label className="form-label">Варианты ответа</label>
+                  {page.options.map((opt, oi) => (
+                    <div key={oi} className="option-row">
+                      <input className="form-input" style={{ marginBottom: 0 }} placeholder={`Вариант ${oi + 1}`} value={opt} onChange={e => updateOption(i, oi, e.target.value)} />
+                      {page.options.length > 2 && <button className="btn-remove" onClick={() => removeOption(i, oi)}>×</button>}
+                    </div>
+                  ))}
+                  <button className="btn-add" onClick={() => addOption(i)}>+ Добавить вариант</button>
+                </div>
+              )}
+            </div>
+          ))}
+
+          <button className="btn-add" onClick={addPage} style={{ marginBottom: '20px', fontSize: '14px' }}>+ Добавить вопрос</button>
+          <br />
+          <button className="btn btn-primary btn-lg" onClick={handleManualSubmit}>Создать опрос</button>
+        </>
+      )}
+
+      {tab === 'ai' && (
+        <div className="form-card">
+          <label className="form-label">Опишите опрос</label>
+          <textarea
+            className="form-textarea"
+            placeholder="Например: опрос для оценки удовлетворённости онлайн-курсом по программированию"
+            value={aiPrompt}
+            onChange={e => setAiPrompt(e.target.value)}
+          />
+          <p style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '16px' }}>
+            AI сгенерирует 5 вопросов на основе вашего описания
+          </p>
+          <button className="btn btn-primary btn-lg" onClick={handleAIGenerate} disabled={aiLoading}>
+            {aiLoading ? 'Генерирую...' : 'Сгенерировать опрос'}
+          </button>
+        </div>
+      )}
+
+      {tab === 'template' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
+          {templates.map(tpl => (
+            <div key={tpl.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <p style={{ fontWeight: 700, fontSize: '14px' }}>{tpl.name}</p>
+              <p style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--text-3)' }}>
+                {tpl.pages?.length || 0} вопросов
+              </p>
+              <button className="btn btn-primary btn-sm" onClick={() => handleUseTemplate(tpl)}>
+                Использовать
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
