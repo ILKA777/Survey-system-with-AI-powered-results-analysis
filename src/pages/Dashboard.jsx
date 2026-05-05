@@ -17,7 +17,7 @@ export default function Dashboard() {
         <div>
           <h1 className="dashboard-title">Дашборд</h1>
           <p style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--text-3)', marginTop: '4px' }}>
-            {polls.length} {polls.length === 1 ? 'опрос' : polls.length < 5 ? 'опроса' : 'опросов'}
+            {polls.length} {polls.length === 1 ? 'опрос' : polls.length >= 2 && polls.length <= 4 ? 'опроса' : 'опросов'}
           </p>
         </div>
         <div className="dashboard-actions">
