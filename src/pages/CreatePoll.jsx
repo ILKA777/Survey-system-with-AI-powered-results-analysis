@@ -96,7 +96,8 @@ export default function CreatePoll() {
                 <span className="form-label" style={{ marginBottom: 0 }}>Вопрос {i + 1}</span>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <select className="form-select" value={page.questionType} onChange={e => updatePage(i, 'questionType', e.target.value)}>
-                    <option value="SINGLE_CHOICE">Варианты ответа</option>
+                    <option value="SINGLE_CHOICE">Один вариант</option>
+                    <option value="MULTIPLE_CHOICE">Несколько вариантов</option>
                     <option value="TEXT">Открытый ответ</option>
                   </select>
                   {pages.length > 1 && <button className="btn-remove" onClick={() => removePage(i)}>×</button>}

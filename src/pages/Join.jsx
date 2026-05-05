@@ -11,6 +11,7 @@ export default function Join() {
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState({})
   const [textInput, setTextInput] = useState('')
+  const [multiSelected, setMultiSelected] = useState([])
   const [nickname, setNickname] = useState('')
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function Join() {
     }
     setAnswers(newAnswers)
     setTextInput('')
+    setMultiSelected([])
 
     if (step < pages.length - 1) {
       setStep(step + 1)
@@ -63,7 +65,14 @@ export default function Join() {
       setStep(step - 1)
       const prev = answers[step - 1]
       setTextInput(prev?.textAnswer || '')
+      setMultiSelected(prev?.selectedOptions || [])
     }
+  }
+
+  const toggleMulti = (opt) => {
+    setMultiSelected(prev =>
+      prev.includes(opt) ? prev.filter(o => o !== opt) : [...prev, opt]
+    )
   }
 
   return (
@@ -106,6 +115,40 @@ export default function Join() {
                 className="btn btn-primary"
                 onClick={() => handleAnswer({ textAnswer: textInput, selectedOptions: [] })}
                 disabled={!textInput.trim() && currentPage.required}
+              >
+                {step < pages.length - 1 ? 'Далее' : 'Завершить'}
+              </button>
+            </div>
+          </div>
+        ) : currentPage.questionType === 'MULTIPLE_CHOICE' ? (
+          <div>
+            <div className="vote-options">
+              {currentPage.options?.map(opt => {
+                const checked = multiSelected.includes(opt)
+                return (
+                  <button
+                    key={opt}
+                    className={`vote-option${checked ? ' selected' : ''}`}
+                    onClick={() => toggleMulti(opt)}
+                  >
+                    <span style={{
+                      width: '16px', height: '16px', borderRadius: '4px', flexShrink: 0,
+                      border: `2px solid ${checked ? 'var(--accent)' : 'var(--border-3)'}`,
+                      background: checked ? 'var(--accent)' : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {checked && <span style={{ color: '#fff', fontSize: '10px', fontWeight: 700 }}>✓</span>}
+                    </span>
+                    {opt}
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => handleAnswer({ selectedOptions: multiSelected, textAnswer: '' })}
+                disabled={multiSelected.length === 0}
               >
                 {step < pages.length - 1 ? 'Далее' : 'Завершить'}
               </button>
