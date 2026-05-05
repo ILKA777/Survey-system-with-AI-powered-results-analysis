@@ -1,69 +1,48 @@
 import { Link, useLocation } from 'react-router-dom'
 import { usePoll } from '../context/PollContext'
-import Logo from './Logo'
-import BackgroundDecorRight from './BackgroundDecorRight'
-import BackgroundDecorLeft from './BackgroundDecorLeft'
-import UserBadge from './UserBadge'
-import LogoWave from './LogoWave'
+import { HomeSimple, StatsReport, Plus } from 'iconoir-react'
+
+function NavLink({ to, children, icon: Icon }) {
+  const location = useLocation()
+  const active = location.pathname === to || location.pathname.startsWith(to + '/')
+  return (
+    <Link to={to} className={`nav-link${active ? ' active' : ''}`}>
+      {Icon && <Icon width={14} height={14} />}
+      {children}
+    </Link>
+  )
+}
 
 export default function Layout({ children }) {
-  const { user, setUser } = usePoll()
-  const location = useLocation()
+  const { user, signout } = usePoll()
+  const initials = user?.nickname?.slice(0, 2).toUpperCase() || '?'
 
   return (
     <div className="layout">
       <header className="header">
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', position: 'relative' }}>
-          <LogoWave />
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <Logo size={40} />
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '9px', textDecoration: 'none' }}>
+          <div className="logo-mark">
+            <svg width="18" height="12" viewBox="0 0 22 14" fill="none">
+              <polyline points="0,7 4,7 6,4 8,12 10,1 12,13 14,7 22,7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2, position: 'relative', zIndex: 1 }}>
-            <span style={{
-              fontSize: '20px',
-              fontWeight: '700',
-              color: 'var(--text-secondary)',
-            }}>
-              PulseRoom
-            </span>
-            <span style={{
-              fontSize: '11px',
-              fontWeight: '400',
-              color: 'var(--text-muted)',
-              letterSpacing: '0.3px',
-            }}>
-              Live-опросы, которые сразу объясняют ответы
-            </span>
-          </div>
+          <span className="logo-text">PulseRoom</span>
         </Link>
 
         <nav className="nav">
-          <Link to="/" className={`nav-link${location.pathname === '/' ? ' active' : ''}`}>
-            Панель
-          </Link>
-          <Link to="/create/poll" className={`nav-link${location.pathname === '/create/poll' ? ' active' : ''}`}>
-            Новый опрос
-          </Link>
-          <Link to="/create/vote" className={`nav-link${location.pathname === '/create/vote' ? ' active' : ''}`}>
-            Голосование
-          </Link>
-          <Link to="/templates" className={`nav-link${location.pathname === '/templates' ? ' active' : ''}`}>
-            Шаблоны
-          </Link>
-          <Link to="/analytics" className={`nav-link${location.pathname === '/analytics' ? ' active' : ''}`}>
-            Аналитика
-          </Link>
-
-          <UserBadge name={user?.name} onLogout={() => setUser(null)} />
+          <NavLink to="/" icon={HomeSimple}>Дашборд</NavLink>
+          <NavLink to="/create/poll" icon={Plus}>Создать</NavLink>
+          <NavLink to="/analytics" icon={StatsReport}>Аналитика</NavLink>
+          {user && (
+            <div className="user-badge" onClick={signout} title="Выйти">
+              <span className="user-badge-name">{user.nickname}</span>
+              <div className="user-badge-avatar">{initials}</div>
+            </div>
+          )}
         </nav>
       </header>
 
-      <main className="content" style={{ position: 'relative', zIndex: 1 }}>
-        {children}
-      </main>
-
-      <BackgroundDecorRight />
-      <BackgroundDecorLeft />
+      <main className="content">{children}</main>
     </div>
   )
 }

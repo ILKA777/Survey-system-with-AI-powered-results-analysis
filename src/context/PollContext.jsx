@@ -1,155 +1,105 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { getUser, signout as apiSignout } from '../api/auth.js'
+import * as pollsApi from '../api/polls.js'
 
 const PollContext = createContext()
 
-const встроенныеШаблоны = [
+const DEFAULT_TEMPLATES = [
   {
-    id: 'tpl1',
-    name: 'Ретроспектива спринта',
-    type: 'survey',
-    steps: [
-      { question: 'Что прошло хорошо в этом спринте?', type: 'open', options: [] },
-      { question: 'Что можно улучшить?', type: 'open', options: [] },
-      { question: 'Оцените спринт в целом', type: 'closed', options: ['⭐1', '⭐2', '⭐3', '⭐4', '⭐5'] },
+    id: 'tpl1', name: 'Ретроспектива спринта', type: 'SURVEY',
+    pages: [
+      { pageOrder: 1, question: 'Что прошло хорошо?', questionType: 'TEXT', options: [], required: false },
+      { pageOrder: 2, question: 'Что можно улучшить?', questionType: 'TEXT', options: [], required: false },
+      { pageOrder: 3, question: 'Оцените спринт', questionType: 'SINGLE_CHOICE', options: ['⭐ 1', '⭐ 2', '⭐ 3', '⭐ 4', '⭐ 5'], required: true },
     ],
   },
   {
-    id: 'tpl2',
-    name: 'Пульс-чек команды',
-    type: 'survey',
-    steps: [
-      { question: 'Как вы себя чувствуете сегодня?', type: 'closed', options: ['😊 Отлично', '🙂 Хорошо', '😐 Нормально', '😟 Устал'] },
-      { question: 'Есть ли блокеры?', type: 'open', options: [] },
+    id: 'tpl2', name: 'Пульс-чек команды', type: 'SURVEY',
+    pages: [
+      { pageOrder: 1, question: 'Как вы себя чувствуете?', questionType: 'SINGLE_CHOICE', options: ['Отлично', 'Хорошо', 'Нормально', 'Устал'], required: true },
+      { pageOrder: 2, question: 'Есть ли блокеры?', questionType: 'TEXT', options: [], required: false },
     ],
   },
   {
-    id: 'tpl3',
-    name: 'Обратная связь по мероприятию',
-    type: 'survey',
-    steps: [
-      { question: 'Как прошло мероприятие?', type: 'closed', options: ['Потрясающе', 'Хорошо', 'Средне', 'Плохо'] },
-      { question: 'Что понравилось больше всего?', type: 'open', options: [] },
-      { question: 'Предложения на будущее?', type: 'open', options: [] },
+    id: 'tpl3', name: 'Обратная связь по мероприятию', type: 'SURVEY',
+    pages: [
+      { pageOrder: 1, question: 'Как прошло мероприятие?', questionType: 'SINGLE_CHOICE', options: ['Потрясающе', 'Хорошо', 'Средне', 'Плохо'], required: true },
+      { pageOrder: 2, question: 'Что понравилось больше всего?', questionType: 'TEXT', options: [], required: false },
+      { pageOrder: 3, question: 'Предложения на будущее?', questionType: 'TEXT', options: [], required: false },
     ],
   },
 ]
 
 export function PollProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('pulseroom_user')
-    return saved ? JSON.parse(saved) : null
-  })
+  const [user, setUserState] = useState(() => getUser())
+  const [polls, setPolls] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const templates = DEFAULT_TEMPLATES
 
-  const [polls, setPolls] = useState(() => {
-    const saved = localStorage.getItem('pulseroom_polls')
-    return saved ? JSON.parse(saved) : []
-  })
-
-  const [templates, setTemplates] = useState(() => {
-    const saved = localStorage.getItem('pulseroom_templates')
-    return saved ? JSON.parse(saved) : встроенныеШаблоны
-  })
-
-  useEffect(() => {
-    localStorage.setItem('pulseroom_polls', JSON.stringify(polls))
-  }, [polls])
-
-  useEffect(() => {
-    localStorage.setItem('pulseroom_templates', JSON.stringify(templates))
-  }, [templates])
-
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('pulseroom_user', JSON.stringify(user))
-    } else {
-      localStorage.removeItem('pulseroom_user')
+  const loadPolls = useCallback(async () => {
+    if (!user) { setPolls([]); return }
+    setLoading(true)
+    try {
+      const data = await pollsApi.listPolls()
+      setPolls(data)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
     }
   }, [user])
 
-  const addPoll = (poll) => {
-    const newPoll = { ...poll, id: Date.now().toString(), createdAt: new Date().toISOString() }
-    setPolls(prev => [newPoll, ...prev])
-    return newPoll
+  useEffect(() => { loadPolls() }, [loadPolls])
+
+  const setUser = (u) => setUserState(u)
+
+  const signout = () => {
+    apiSignout()
+    setUserState(null)
+    setPolls([])
   }
 
-  const addVote = (data) => {
-    const vote = { ...data, id: Date.now().toString(), type: 'vote', createdAt: new Date().toISOString() }
-    setPolls(prev => [vote, ...prev])
-    return vote
+  const addPoll = async (data) => {
+    const poll = await pollsApi.createPoll(data)
+    setPolls(prev => [poll, ...prev])
+    return poll
   }
 
-  const updatePoll = (id, data) => {
-    setPolls(prev => prev.map(p => p.id === id ? { ...p, ...data } : p))
+  const publish = async (id) => {
+    const poll = await pollsApi.publishPoll(id)
+    setPolls(prev => prev.map(p => p.id === id ? poll : p))
+    return poll
   }
 
-  const duplicatePoll = (id) => {
-    const poll = polls.find(p => p.id === id)
-    if (!poll) return
-    const copy = {
-      ...JSON.parse(JSON.stringify(poll)),
-      id: Date.now().toString(),
-      title: poll.title ? `${poll.title} (Копия)` : undefined,
-      question: poll.question ? `${poll.question} (Копия)` : undefined,
-      createdAt: new Date().toISOString(),
-      votes: poll.type === 'vote' ? {} : poll.votes,
-      responses: poll.type === 'survey' ? [] : poll.responses,
-    }
-    setPolls(prev => [copy, ...prev])
-  }
+  const getPoll = (id) => polls.find(p => p.id === id) ?? null
 
-  const deletePoll = (id) => {
+  const deletePoll = async (id) => {
+    await pollsApi.deletePoll(id)
     setPolls(prev => prev.filter(p => p.id !== id))
   }
 
-  const getPoll = (id) => {
-    if (!id) return null
-    return polls.find(p => p.id === id)
+  const duplicatePoll = async (id) => {
+    const poll = await pollsApi.duplicatePoll(id)
+    setPolls(prev => [poll, ...prev])
+    return poll
   }
 
-  const saveAsTemplate = (pollId, name) => {
-    const poll = polls.find(p => p.id === pollId)
-    if (!poll || poll.type !== 'survey') return
-    const template = {
-      id: `tpl_${Date.now()}`,
-      name: name || poll.title || 'Без названия',
-      type: 'survey',
-      steps: JSON.parse(JSON.stringify(poll.steps)),
-    }
-    setTemplates(prev => [template, ...prev])
-  }
-
-  const deleteTemplate = (id) => {
-    setTemplates(prev => prev.filter(t => t.id === id))
-  }
-
-  const useTemplate = (template) => {
-    const newPoll = {
-      id: Date.now().toString(),
-      type: 'survey',
+  const useTemplate = async (template) => {
+    const poll = await addPoll({
+      type: template.type,
       title: template.name,
-      steps: JSON.parse(JSON.stringify(template.steps)),
-      responses: [],
-      createdAt: new Date().toISOString(),
-    }
-    setPolls(prev => [newPoll, ...prev])
-    return newPoll
+      pages: template.pages,
+    })
+    return poll
   }
 
   return (
     <PollContext.Provider value={{
-      user,
-      setUser,
-      polls,
+      user, setUser, signout,
+      polls, loading, error, loadPolls,
       templates,
-      addPoll,
-      addVote,
-      updatePoll,
-      duplicatePoll,
-      deletePoll,
-      getPoll,
-      saveAsTemplate,
-      deleteTemplate,
-      useTemplate,
+      addPoll, publish, getPoll, deletePoll, duplicatePoll, useTemplate,
     }}>
       {children}
     </PollContext.Provider>
