@@ -1,0 +1,587 @@
+openapi: 3.0.1
+info:
+  title: OpenAPI definition
+  version: v0
+servers:
+- url: http://localhost:8080
+  description: Generated server url
+tags:
+- name: Авторизация
+  description: Регистрация и вход по никнейму без пароля
+- name: "Админ: опросы"
+  description: "Ручки для создания, публикации и анализа опросов/голосований/викто\
+    рин"
+- name: "Участник: прохождение"
+  description: Ручки для входа в комнату и отправки ответов участником
+paths:
+  /api/participant/polls/room/{roomCode}/submit:
+    post:
+      tags:
+      - "Участник: прохождение"
+      summary: Отправить ответы участника
+      description: "Принимает ответы участника, сохраняет результат и возвращает э\
+        кранное сообщение «Спасибо за прохождение опроса»."
+      operationId: submit
+      parameters:
+      - name: roomCode
+        in: path
+        description: Код комнаты опроса
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitPollRequest"
+        required: true
+      responses:
+        "200":
+          description: Ответы успешно сохранены
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SubmitPollResponse"
+        "404":
+          description: Опубликованный опрос не найден
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SubmitPollResponse"
+        "400":
+          description: Нарушены правила валидации ответов
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SubmitPollResponse"
+  /api/auth/signup:
+    post:
+      tags:
+      - Авторизация
+      summary: Регистрация пользователя
+      description: "Создает нового пользователя по никнейму. Если никнейм уже суще\
+        ствует, возвращает существующего пользователя и новый токен."
+      operationId: signUp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthRequest"
+        required: true
+      responses:
+        "400":
+          description: Некорректный формат запроса
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "201":
+          description: Пользователь успешно зарегистрирован
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /api/auth/signin:
+    post:
+      tags:
+      - Авторизация
+      summary: Вход пользователя
+      description: Выполняет вход по существующему никнейму и возвращает токен авторизации.
+      operationId: signIn
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthRequest"
+        required: true
+      responses:
+        "404":
+          description: Пользователь не найден
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Некорректный формат запроса
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "200":
+          description: Успешный вход
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /api/admin/polls:
+    get:
+      tags:
+      - "Админ: опросы"
+      summary: Получить список опросов администратора
+      description: "Возвращает все опросы/голосования/викторины, созданные текущим\
+        \ администратором."
+      operationId: list
+      parameters:
+      - name: X-Auth-Token
+        in: header
+        description: Токен авторизации администратора
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Список успешно получен
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PollResponse"
+        "401":
+          description: Отсутствует или неверный токен
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PollResponse"
+    post:
+      tags:
+      - "Админ: опросы"
+      summary: Создать опрос вручную
+      description: "Создает опрос, голосование или викторину на основе переданных\
+        \ страниц. Для режима VOTE допускается только одна страница."
+      operationId: createManual
+      parameters:
+      - name: X-Auth-Token
+        in: header
+        description: Токен авторизации администратора
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePollRequest"
+        required: true
+      responses:
+        "201":
+          description: Сущность успешно создана
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+        "400":
+          description: Нарушены правила валидации
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+        "401":
+          description: Отсутствует или неверный токен
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+  /api/admin/polls/{pollId}/publish:
+    post:
+      tags:
+      - "Админ: опросы"
+      summary: Опубликовать опрос
+      description: "Переводит созданную сущность в статус PUBLISHED, после чего уч\
+        астники могут проходить по ссылке/room code."
+      operationId: publish
+      parameters:
+      - name: X-Auth-Token
+        in: header
+        description: Токен авторизации администратора
+        required: true
+        schema:
+          type: string
+      - name: pollId
+        in: path
+        description: Идентификатор опроса
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: Опрос опубликован
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+        "403":
+          description: Пользователь не является админом данного опроса
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+        "404":
+          description: Опрос не найден
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+        "401":
+          description: Отсутствует или неверный токен
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+  /api/admin/polls/ai-generate:
+    post:
+      tags:
+      - "Админ: опросы"
+      summary: Сгенерировать опрос через AI (mock)
+      description: "Создает сущность на основе промпта. AI-модуль замокан: возвращ\
+        аются автоматически сгенерированные вопросы и варианты."
+      operationId: createWithAi
+      parameters:
+      - name: X-Auth-Token
+        in: header
+        description: Токен авторизации администратора
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeneratePollRequest"
+        required: true
+      responses:
+        "201":
+          description: Сущность успешно сгенерирована
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+        "400":
+          description: Нарушены правила валидации
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+        "401":
+          description: Отсутствует или неверный токен
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+  /api/participant/polls/room/{roomCode}:
+    get:
+      tags:
+      - "Участник: прохождение"
+      summary: Открыть опрос по коду комнаты
+      description: Возвращает опубликованный опрос/голосование/викторину для участника
+        по room code.
+      operationId: getByRoomCode
+      parameters:
+      - name: roomCode
+        in: path
+        description: Код комнаты опроса
+        required: true
+        schema:
+          type: string
+      responses:
+        "404":
+          description: Опубликованный опрос не найден
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+        "200":
+          description: Опрос найден и доступен
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+  /api/admin/polls/{pollId}/results:
+    get:
+      tags:
+      - "Админ: опросы"
+      summary: Получить результаты опроса
+      description: "Возвращает сырые ответы, агрегированные результаты, данные для\
+        \ графиков и AI-суммаризацию (mock)."
+      operationId: results
+      parameters:
+      - name: X-Auth-Token
+        in: header
+        description: Токен авторизации администратора
+        required: true
+        schema:
+          type: string
+      - name: pollId
+        in: path
+        description: Идентификатор опроса
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: Результаты успешно получены
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResultsResponse"
+        "403":
+          description: Пользователь не является админом данного опроса
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResultsResponse"
+        "404":
+          description: Опрос не найден
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResultsResponse"
+        "401":
+          description: Отсутствует или неверный токен
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PollResultsResponse"
+components:
+  schemas:
+    AnswerPayload:
+      required:
+      - pageId
+      type: object
+      properties:
+        pageId:
+          type: integer
+          format: int64
+        selectedOptions:
+          maxItems: 30
+          minItems: 0
+          type: array
+          items:
+            type: string
+        textAnswer:
+          maxLength: 1000
+          minLength: 0
+          type: string
+    SubmitPollRequest:
+      required:
+      - answers
+      type: object
+      properties:
+        nickname:
+          maxLength: 64
+          minLength: 0
+          type: string
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnswerPayload"
+    SubmitPollResponse:
+      type: object
+      properties:
+        message:
+          type: string
+    AuthRequest:
+      required:
+      - nickname
+      type: object
+      properties:
+        nickname:
+          maxLength: 64
+          minLength: 0
+          type: string
+    AuthResponse:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+        anonymous:
+          type: boolean
+        token:
+          type: string
+    CreatePollRequest:
+      required:
+      - pages
+      - title
+      - type
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - SURVEY
+          - VOTE
+          - QUIZ
+        title:
+          maxLength: 160
+          minLength: 0
+          type: string
+        description:
+          maxLength: 500
+          minLength: 0
+          type: string
+        allowAnonymous:
+          type: boolean
+        pages:
+          type: array
+          items:
+            $ref: "#/components/schemas/PagePayload"
+    PagePayload:
+      required:
+      - question
+      type: object
+      properties:
+        question:
+          type: string
+        questionType:
+          type: string
+          enum:
+          - SINGLE_CHOICE
+          - MULTIPLE_CHOICE
+          - TEXT
+        required:
+          type: boolean
+        options:
+          maxItems: 30
+          minItems: 0
+          type: array
+          items:
+            maxLength: 200
+            minLength: 0
+            type: string
+        dependsOnPageId:
+          type: integer
+          format: int64
+        dependsOnOption:
+          maxLength: 200
+          minLength: 0
+          type: string
+    PollPageResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        pageOrder:
+          type: integer
+          format: int32
+        question:
+          type: string
+        questionType:
+          type: string
+          enum:
+          - SINGLE_CHOICE
+          - MULTIPLE_CHOICE
+          - TEXT
+        required:
+          type: boolean
+        options:
+          type: array
+          items:
+            type: string
+        dependsOnPageId:
+          type: integer
+          format: int64
+        dependsOnOption:
+          type: string
+    PollResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        type:
+          type: string
+          enum:
+          - SURVEY
+          - VOTE
+          - QUIZ
+        title:
+          type: string
+        description:
+          type: string
+        roomCode:
+          type: string
+        joinLink:
+          type: string
+        qrPayload:
+          type: string
+        allowAnonymous:
+          type: boolean
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - PUBLISHED
+          - CLOSED
+        aiSummary:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        pages:
+          type: array
+          items:
+            $ref: "#/components/schemas/PollPageResponse"
+    GeneratePollRequest:
+      required:
+      - prompt
+      - type
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - SURVEY
+          - VOTE
+          - QUIZ
+        prompt:
+          type: string
+        pagesCount:
+          maximum: 10
+          minimum: 1
+          type: integer
+          format: int32
+        optionsPerQuestion:
+          maximum: 10
+          minimum: 2
+          type: integer
+          format: int32
+        allowAnonymous:
+          type: boolean
+    PollResultsResponse:
+      type: object
+      properties:
+        rawResults:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: object
+        aggregatedChoiceResults:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: integer
+              format: int64
+        textAnswers:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        chartData:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: object
+        aiSummary:
+          type: string
