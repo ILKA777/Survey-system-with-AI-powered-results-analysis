@@ -79,8 +79,8 @@ export default function PollDetail() {
       <div className="poll-detail-hero">
         <div className="poll-detail-meta" style={{ marginBottom: '10px' }}>
           <span className={`badge ${statusClass}`}>{statusLabel}</span>
-          <span className={`badge ${poll.type === 'VOTE' ? 'badge-vote' : 'badge-survey'}`}>
-            {poll.type === 'VOTE' ? 'Голосование' : 'Опрос'}
+          <span className={`badge ${{ VOTE: 'badge-vote', SURVEY: 'badge-survey', QUIZ: 'badge-quiz' }[poll.type] || 'badge-survey'}`}>
+            {{ VOTE: 'Голосование', SURVEY: 'Опрос', QUIZ: 'Викторина' }[poll.type] || poll.type}
           </span>
           <span style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--text-3)' }}>
             {new Date(poll.created_at).toLocaleDateString('ru-RU')}

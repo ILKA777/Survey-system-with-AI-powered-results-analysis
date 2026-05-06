@@ -3,6 +3,7 @@ import { usePoll } from './context/PollContext'
 import Dashboard from './pages/Dashboard'
 import CreatePoll from './pages/CreatePoll'
 import CreateVote from './pages/CreateVote'
+import CreateQuiz from './pages/CreateQuiz'
 import PollDetail from './pages/PollDetail'
 import Join from './pages/Join'
 import Thanks from './pages/Thanks'
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/create/poll" element={<CreatePoll />} />
             <Route path="/create/vote" element={<CreateVote />} />
+            <Route path="/create/quiz" element={<CreateQuiz />} />
             <Route path="/poll/:id" element={<PollDetail />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/join/:roomCode" element={<Join />} />
