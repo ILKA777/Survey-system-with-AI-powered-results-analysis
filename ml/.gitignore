@@ -1,0 +1,18 @@
+# Секреты
+../LLM_key.env
+.env
+
+
+# Сгенерированные файлы
+output/
+*.csv
+!responses.csv    # тестовый датасет
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Виртуальное окружение
+venv/
+.venv/
