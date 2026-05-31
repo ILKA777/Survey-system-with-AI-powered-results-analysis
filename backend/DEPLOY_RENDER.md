@@ -5,11 +5,11 @@
 - Добавлен `render.yaml` (Blueprint) для автоматического создания:
   - PostgreSQL базы (`iipoll-db`)
   - Web-сервиса (`iipoll-api`)
+- Деплой web-сервиса выполняется через Docker (`runtime: docker`)
+- Добавлены `Dockerfile` и `.dockerignore`
 - Приложение читает порт Render через `PORT`
 - Подключение к PostgreSQL настраивается через `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD`
-- Сборка и запуск:
-  - `mvn -DskipTests clean package`
-  - `java -jar target/iipoll-1.0-SNAPSHOT.jar`
+- AI по умолчанию отключен (`AI_ENABLED=false`) в `render.yaml`
 
 ## Как задеплоить
 
@@ -28,4 +28,4 @@
 ## Примечания
 
 - На Free-плане Render сервис может "засыпать" при простое.
-- Если поменяете `artifactId` или `version`, обновите `startCommand` в `render.yaml`.
+- Если измените имя итогового jar в `pom.xml`, обновите `Dockerfile`.
