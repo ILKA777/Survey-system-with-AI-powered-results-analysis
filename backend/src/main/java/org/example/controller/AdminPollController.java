@@ -7,7 +7,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.example.dto.CreatePollRequest;
-import org.example.dto.GeneratePollRequest;
 import org.example.dto.PollResponse;
 import org.example.dto.PollResultsResponse;
 import org.example.service.AuthTokenService;
@@ -57,26 +56,6 @@ public class AdminPollController {
         return pollService.createManual(adminId, request);
     }
 
-    @PostMapping("/ai-generate")
-    @ResponseStatus(HttpStatus.CREATED)
-    @Operation(
-            summary = "Сгенерировать черновик через AI (mock)",
-            description = "Создает черновик опроса/голосования/викторины в статусе DRAFT на основе промпта. AI-модуль замокан: возвращаются автоматически сгенерированные вопросы и варианты."
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Сущность успешно сгенерирована"),
-            @ApiResponse(responseCode = "400", description = "Нарушены правила валидации"),
-            @ApiResponse(responseCode = "401", description = "Отсутствует или неверный токен")
-    })
-    public PollResponse createWithAi(
-            @Parameter(description = "Токен авторизации администратора", required = true)
-            @RequestHeader("X-Auth-Token") String token,
-            @Valid @RequestBody GeneratePollRequest request
-    ) {
-        Long adminId = authTokenService.requireUserId(token);
-        return pollService.createByAi(adminId, request);
-    }
-
     @PostMapping("/{pollId}/publish")
     @Operation(
             summary = "Опубликовать опрос",
@@ -92,7 +71,7 @@ public class AdminPollController {
             @Parameter(description = "Токен авторизации администратора", required = true)
             @RequestHeader("X-Auth-Token") String token,
             @Parameter(description = "Идентификатор опроса", required = true)
-            @PathVariable Long pollId
+            @PathVariable("pollId") Long pollId
     ) {
         Long adminId = authTokenService.requireUserId(token);
         return pollService.publish(adminId, pollId);
@@ -118,7 +97,7 @@ public class AdminPollController {
     @GetMapping("/{pollId}/results")
     @Operation(
             summary = "Получить результаты опроса",
-            description = "Возвращает сырые ответы, агрегированные результаты, данные для графиков и AI-суммаризацию (mock)."
+            description = "Возвращает сырые ответы, агрегированные результаты, данные для графиков и AI-суммаризацию."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Результаты успешно получены"),
@@ -130,7 +109,7 @@ public class AdminPollController {
             @Parameter(description = "Токен авторизации администратора", required = true)
             @RequestHeader("X-Auth-Token") String token,
             @Parameter(description = "Идентификатор опроса", required = true)
-            @PathVariable Long pollId
+            @PathVariable("pollId") Long pollId
     ) {
         Long adminId = authTokenService.requireUserId(token);
         return pollService.getResults(adminId, pollId);

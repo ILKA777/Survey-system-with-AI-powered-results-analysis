@@ -1,6 +1,7 @@
 package org.example.unit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.config.AiProperties;
 import org.example.dto.AnswerPayload;
 import org.example.dto.CreatePollRequest;
 import org.example.dto.PagePayload;
@@ -12,17 +13,17 @@ import org.example.model.PollPage;
 import org.example.model.PollStatus;
 import org.example.model.PollType;
 import org.example.model.QuestionType;
+import org.example.repository.PollAnswerRepository;
 import org.example.repository.PollPageRepository;
 import org.example.repository.PollRepository;
 import org.example.repository.UserRepository;
-import org.example.service.AiMockService;
+import org.example.service.AiModuleService;
 import org.example.service.JsonService;
 import org.example.service.PollService;
 import org.example.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -34,6 +35,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,6 +46,8 @@ class PollServiceUnitTest {
     private PollRepository pollRepository;
     @Mock
     private PollPageRepository pollPageRepository;
+    @Mock
+    private PollAnswerRepository pollAnswerRepository;
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -54,13 +59,17 @@ class PollServiceUnitTest {
     @BeforeEach
     void setUp() {
         jsonService = new JsonService(new ObjectMapper());
+        AiProperties aiProperties = new AiProperties();
+        aiProperties.setEnabled(false);
+        AiModuleService aiModuleService = new AiModuleService(aiProperties);
         pollService = new PollService(
                 pollRepository,
+                pollAnswerRepository,
                 pollPageRepository,
                 userRepository,
                 userService,
                 jsonService,
-                new AiMockService()
+                aiModuleService
         );
     }
 
@@ -117,9 +126,6 @@ class PollServiceUnitTest {
 
         when(pollRepository.findByRoomCodeAndStatus("ROOM01", PollStatus.PUBLISHED)).thenReturn(Optional.of(poll));
         when(pollPageRepository.findByPollIdOrderByPageOrderAsc(101L)).thenReturn(List.of(page));
-        when(userService.getOrCreateParticipant(null, true))
-                .thenReturn(user(20L, "anon-1", true))
-                .thenReturn(user(21L, "anon-2", true));
         when(pollRepository.save(any(Poll.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SubmitPollRequest submit = new SubmitPollRequest(
@@ -130,9 +136,8 @@ class PollServiceUnitTest {
         pollService.submit("room01", submit);
         pollService.submit("room01", submit);
 
-        assertThat(poll.getParticipants()).hasSize(2);
-        var raw = jsonService.readResultList(poll.getRawResultsJson());
-        assertThat(raw).hasSize(2);
+        assertThat(poll.getParticipants()).isEmpty();
+        verify(pollAnswerRepository, times(2)).saveAll(any());
     }
 
     private IIPollUser admin() {

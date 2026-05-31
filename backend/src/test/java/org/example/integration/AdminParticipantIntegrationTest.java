@@ -2,6 +2,7 @@ package org.example.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.repository.PollAnswerRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -28,6 +29,8 @@ class AdminParticipantIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private PollAnswerRepository pollAnswerRepository;
 
     @Test
     void shouldReturnBadRequestWhenVoteHasMultiplePages() throws Exception {
@@ -100,6 +103,8 @@ class AdminParticipantIntegrationTest {
                         .content(submitPayload))
                 .andExpect(status().isOk());
 
+        assertThat(pollAnswerRepository.findByPollIdOrderBySubmittedAtAscIdAsc(pollId)).hasSize(1);
+
         MvcResult resultsRes = mockMvc.perform(get("/api/admin/polls/{id}/results", pollId)
                         .header("X-Auth-Token", token))
                 .andExpect(status().isOk())
@@ -108,27 +113,31 @@ class AdminParticipantIntegrationTest {
         JsonNode results = body(resultsRes);
         assertThat(results.get("rawResults").size()).isEqualTo(1);
         assertThat(results.get("chartData").size()).isEqualTo(1);
-        assertThat(results.get("aiSummary").asText()).contains("AI mock");
+        assertThat(results.get("aiSummary").asText()).isNotBlank();
     }
 
     @Test
-    void shouldGenerateQuizWithAiAndAllowAnonymousSubmit() throws Exception {
+    void shouldCreateQuizAndAllowAnonymousSubmit() throws Exception {
         String token = signUpAndGetToken("admin-ai");
 
-        String aiPayload = """
+        String createPayload = """
                 {
                   "type":"QUIZ",
-                  "prompt":"Тест по продукту",
-                  "pagesCount":3,
-                  "optionsPerQuestion":4,
-                  "allowAnonymous":true
+                  "title":"Quiz manual",
+                  "description":"desc",
+                  "allowAnonymous":true,
+                  "pages":[
+                    {"question":"Q1","questionType":"SINGLE_CHOICE","required":true,"options":["A","B"]},
+                    {"question":"Q2","questionType":"SINGLE_CHOICE","required":true,"options":["A","B"]},
+                    {"question":"Q3","questionType":"SINGLE_CHOICE","required":true,"options":["A","B"]}
+                  ]
                 }
                 """;
 
-        MvcResult createRes = mockMvc.perform(post("/api/admin/polls/ai-generate")
+        MvcResult createRes = mockMvc.perform(post("/api/admin/polls")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-Auth-Token", token)
-                        .content(aiPayload))
+                        .content(createPayload))
                 .andExpect(status().isCreated())
                 .andReturn();
 

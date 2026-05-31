@@ -10,3 +10,6 @@ spring:
     open-in-view: false
   jackson:
     default-property-inclusion: non_null
+
+ai:
+  enabled: false

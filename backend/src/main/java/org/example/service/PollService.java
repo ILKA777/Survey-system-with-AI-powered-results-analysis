@@ -2,7 +2,6 @@ package org.example.service;
 
 import org.example.dto.AnswerPayload;
 import org.example.dto.CreatePollRequest;
-import org.example.dto.GeneratePollRequest;
 import org.example.dto.PagePayload;
 import org.example.dto.PollPageResponse;
 import org.example.dto.PollResponse;
@@ -11,10 +10,12 @@ import org.example.dto.SubmitPollRequest;
 import org.example.exception.ApiException;
 import org.example.model.IIPollUser;
 import org.example.model.Poll;
+import org.example.model.PollAnswer;
 import org.example.model.PollPage;
 import org.example.model.PollStatus;
 import org.example.model.PollType;
 import org.example.model.QuestionType;
+import org.example.repository.PollAnswerRepository;
 import org.example.repository.PollPageRepository;
 import org.example.repository.PollRepository;
 import org.example.repository.UserRepository;
@@ -30,7 +31,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
-import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,27 +39,30 @@ public class PollService {
     private static final String ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
     private final PollRepository pollRepository;
+    private final PollAnswerRepository pollAnswerRepository;
     private final PollPageRepository pollPageRepository;
     private final UserRepository userRepository;
     private final UserService userService;
     private final JsonService jsonService;
-    private final AiMockService aiMockService;
+    private final AiModuleService aiModuleService;
     private final Random random = new Random();
 
     public PollService(
             PollRepository pollRepository,
+            PollAnswerRepository pollAnswerRepository,
             PollPageRepository pollPageRepository,
             UserRepository userRepository,
             UserService userService,
             JsonService jsonService,
-            AiMockService aiMockService
+            AiModuleService aiModuleService
     ) {
         this.pollRepository = pollRepository;
+        this.pollAnswerRepository = pollAnswerRepository;
         this.pollPageRepository = pollPageRepository;
         this.userRepository = userRepository;
         this.userService = userService;
         this.jsonService = jsonService;
-        this.aiMockService = aiMockService;
+        this.aiModuleService = aiModuleService;
     }
 
     @Transactional
@@ -78,23 +82,6 @@ public class PollService {
         appendPages(poll, request.pages());
         Poll saved = pollRepository.save(poll);
         return toResponse(saved);
-    }
-
-    @Transactional
-    public PollResponse createByAi(Long adminId, GeneratePollRequest request) {
-        List<PagePayload> generated = aiMockService.generatePages(
-                request.type(),
-                request.prompt(),
-                request.pagesCount(),
-                request.optionsPerQuestion()
-        );
-        return createManual(adminId, new CreatePollRequest(
-                request.type(),
-                "AI: " + request.prompt(),
-                "Сгенерировано AI mock",
-                request.allowAnonymous(),
-                generated
-        ));
     }
 
     @Transactional(readOnly = true)
@@ -124,7 +111,14 @@ public class PollService {
         Poll poll = pollRepository.findByRoomCodeAndStatus(roomCode.toUpperCase(Locale.ROOT), PollStatus.PUBLISHED)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Published poll not found for room"));
 
-        IIPollUser participant = userService.getOrCreateParticipant(request.nickname(), poll.isAllowAnonymous());
+        String nickname = request.nickname() == null ? null : request.nickname().trim();
+        boolean anonymousSubmission = nickname == null || nickname.isBlank();
+        if (anonymousSubmission && !poll.isAllowAnonymous()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "This poll requires nickname");
+        }
+
+        IIPollUser participant = anonymousSubmission ? null : userService.getOrCreateParticipant(nickname, true);
+        String participantNickname = anonymousSubmission ? "anonymous" : participant.getNickname();
         Map<Long, PollPage> pages = pollPageRepository.findByPollIdOrderByPageOrderAsc(poll.getId())
                 .stream()
                 .collect(Collectors.toMap(PollPage::getId, p -> p));
@@ -137,24 +131,38 @@ public class PollService {
             validateAnswer(page, answer);
         }
 
-        List<Map<String, Object>> rawResults = new ArrayList<>(jsonService.readResultList(poll.getRawResultsJson()));
-        Map<String, Object> row = new LinkedHashMap<>();
-        row.put("participantNickname", participant.getNickname());
-        row.put("submittedAt", OffsetDateTime.now().toString());
-        row.put("answers", request.answers());
-        rawResults.add(row);
-        poll.setRawResultsJson(jsonService.write(rawResults));
-        poll.getParticipants().add(participant);
-
-        Map<Long, Map<String, Long>> aggregated = aggregateChoiceResults(rawResults);
-        poll.setAiSummary(aiMockService.summarize(aggregated));
+        OffsetDateTime submittedAt = OffsetDateTime.now();
+        String submissionId = UUID.randomUUID().toString();
+        List<PollAnswer> answersToSave = new ArrayList<>();
+        for (AnswerPayload answer : request.answers()) {
+            PollPage page = pages.get(answer.pageId());
+            PollAnswer pollAnswer = new PollAnswer();
+            pollAnswer.setPoll(poll);
+            pollAnswer.setPage(page);
+            pollAnswer.setParticipant(participant);
+            pollAnswer.setParticipantNickname(participantNickname);
+            pollAnswer.setSubmissionId(submissionId);
+            pollAnswer.setSubmittedAt(submittedAt);
+            pollAnswer.setSelectedOptionsJson(jsonService.write(
+                    answer.selectedOptions() == null ? List.of() : answer.selectedOptions()
+            ));
+            pollAnswer.setTextAnswer(answer.textAnswer());
+            answersToSave.add(pollAnswer);
+        }
+        pollAnswerRepository.saveAll(answersToSave);
+        if (participant != null) {
+            poll.getParticipants().add(participant);
+        }
         pollRepository.save(poll);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PollResultsResponse getResults(Long adminId, Long pollId) {
         Poll poll = requireOwnedPoll(adminId, pollId);
-        List<Map<String, Object>> rawResults = jsonService.readResultList(poll.getRawResultsJson());
+        List<PollAnswer> answers = pollAnswerRepository.findByPollIdOrderBySubmittedAtAscIdAsc(pollId);
+        List<Map<String, Object>> rawResults = answers.isEmpty()
+                ? jsonService.readResultList(poll.getRawResultsJson())
+                : toRawResults(answers);
         Map<Long, Map<String, Long>> aggregatedChoiceResults = aggregateChoiceResults(rawResults);
         Map<Long, List<String>> textAnswers = aggregateTextAnswers(rawResults);
 
@@ -168,11 +176,36 @@ public class PollService {
             chartData.add(chart);
         }
 
-        String summary = poll.getAiSummary();
-        if (summary == null || summary.isBlank()) {
-            summary = aiMockService.summarize(aggregatedChoiceResults);
-        }
+        String summary = aiModuleService.summarize(poll, rawResults);
+        poll.setAiSummary(summary);
+        pollRepository.save(poll);
         return new PollResultsResponse(rawResults, aggregatedChoiceResults, textAnswers, chartData, summary);
+    }
+
+    private List<Map<String, Object>> toRawResults(List<PollAnswer> answers) {
+        Map<String, Map<String, Object>> grouped = new LinkedHashMap<>();
+        for (PollAnswer answer : answers) {
+            Map<String, Object> row = grouped.computeIfAbsent(answer.getSubmissionId(), key -> {
+                Map<String, Object> created = new LinkedHashMap<>();
+                String rowNickname = answer.getParticipantNickname();
+                if ((rowNickname == null || rowNickname.isBlank()) && answer.getParticipant() != null) {
+                    rowNickname = answer.getParticipant().getNickname();
+                }
+                created.put("participantNickname", rowNickname == null ? "anonymous" : rowNickname);
+                created.put("submittedAt", answer.getSubmittedAt().toString());
+                created.put("answers", new ArrayList<Map<String, Object>>());
+                return created;
+            });
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> rowAnswers = (List<Map<String, Object>>) row.get("answers");
+            Map<String, Object> answerMap = new LinkedHashMap<>();
+            answerMap.put("pageId", answer.getPage().getId());
+            answerMap.put("selectedOptions", jsonService.readStringList(answer.getSelectedOptionsJson()));
+            answerMap.put("textAnswer", answer.getTextAnswer());
+            rowAnswers.add(answerMap);
+        }
+        return new ArrayList<>(grouped.values());
     }
 
     private void validatePagesForType(PollType type, List<PagePayload> pages) {

@@ -131,7 +131,7 @@ class PollSystemTest {
 
         JsonNode results = getResults(token, pollId);
         assertThat(results.get("rawResults").size()).isEqualTo(1);
-        assertThat(results.get("aiSummary").asText()).contains("AI mock");
+        assertThat(results.get("aiSummary").asText()).isNotBlank();
     }
 
     private String signUp(String nickname) throws Exception {
