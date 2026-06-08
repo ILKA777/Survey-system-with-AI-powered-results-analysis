@@ -1,11 +1,10 @@
-import { supabase } from './supabase.js'
+import { request } from './http.js'
 
-export async function submitResponse(pollId, answers, nickname = null) {
-  const { data, error } = await supabase
-    .from('responses')
-    .insert({ poll_id: pollId, answers, participant_nickname: nickname })
-    .select()
-    .single()
-  if (error) throw new Error(error.message)
-  return data
+// Отправка ответов участника. roomCode — код комнаты;
+// answers: [{ pageId, selectedOptions, textAnswer }], где pageId — реальный id страницы.
+export async function submitResponse(roomCode, answers, nickname = null) {
+  return request(`/api/participant/polls/room/${encodeURIComponent(roomCode)}/submit`, {
+    method: 'POST',
+    body: { nickname: nickname || '', answers },
+  })
 }

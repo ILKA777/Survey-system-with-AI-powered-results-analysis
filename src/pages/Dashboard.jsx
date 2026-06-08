@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { usePoll } from '../context/PollContext'
-import { Plus, Notes, StatsUpSquare, Copy, Trash, StatsReport } from 'iconoir-react'
+import { FEATURES } from '../config/features'
+import { Plus, Notes, StatsUpSquare, StatsReport } from 'iconoir-react'
 
 export default function Dashboard() {
-  const { polls, duplicatePoll, deletePoll, loading } = usePoll()
+  const { polls, loading } = usePoll()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -63,9 +64,11 @@ export default function Dashboard() {
                 <Link to="/create/vote" className="dropdown-item" onClick={() => setDropdownOpen(false)}>
                   <StatsUpSquare width={13} height={13} /> Голосование
                 </Link>
-                <Link to="/create/quiz" className="dropdown-item" onClick={() => setDropdownOpen(false)}>
-                  <span style={{ fontSize: '13px', lineHeight: 1 }}>★</span> Викторина
-                </Link>
+                {FEATURES.quiz && (
+                  <Link to="/create/quiz" className="dropdown-item" onClick={() => setDropdownOpen(false)}>
+                    <span style={{ fontSize: '13px', lineHeight: 1 }}>★</span> Викторина
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -76,7 +79,7 @@ export default function Dashboard() {
         <div className="empty-state">
           <div className="empty-icon"><StatsReport width={24} height={24} /></div>
           <p className="empty-title">Нет опросов</p>
-          <p className="empty-text">Создайте первый опрос, голосование или викторину</p>
+          <p className="empty-text">Создайте первый опрос или голосование</p>
           <Link to="/create/poll" className="btn btn-primary">
             <Plus width={15} height={15} /> Создать опрос
           </Link>
@@ -98,7 +101,7 @@ export default function Dashboard() {
                       <span className={`badge ${statusClass}`}>{statusLabel}</span>
                     </div>
                     <span style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--text-3)' }}>
-                      {new Date(poll.created_at).toLocaleDateString('ru-RU')}
+                      {poll.createdAt ? new Date(poll.createdAt).toLocaleDateString('ru-RU') : ''}
                     </span>
                   </div>
 
@@ -106,10 +109,10 @@ export default function Dashboard() {
 
                   <div className="poll-card-meta">
                     <span>{poll.pages?.length || 0} вопросов</span>
-                    {poll.room_code && (
+                    {poll.roomCode && (
                       <>
                         <span>·</span>
-                        <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{poll.room_code}</span>
+                        <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{poll.roomCode}</span>
                       </>
                     )}
                   </div>
@@ -121,12 +124,6 @@ export default function Dashboard() {
                     <Link to={`/poll/${poll.id}`} className="btn btn-outline btn-sm">
                       <StatsReport width={13} height={13} /> Итоги
                     </Link>
-                    <button className="btn btn-ghost btn-sm" onClick={() => duplicatePoll(poll.id)} title="Дублировать">
-                      <Copy width={13} height={13} />
-                    </button>
-                    <button className="btn btn-danger btn-sm" onClick={() => { if (confirm('Удалить опрос?')) deletePoll(poll.id) }} title="Удалить">
-                      <Trash width={13} height={13} />
-                    </button>
                   </div>
                 </div>
               </div>

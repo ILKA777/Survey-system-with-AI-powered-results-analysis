@@ -1,25 +1,22 @@
-import { supabase } from './supabase.js'
+import { request } from './http.js'
 
 const USER_KEY = 'pulseroom_user'
 
 export async function signup(nickname) {
-  const { data, error } = await supabase
-    .from('users')
-    .upsert({ nickname }, { onConflict: 'nickname' })
-    .select()
-    .single()
-  if (error) throw new Error(error.message)
+  const data = await request('/api/auth/signup', {
+    method: 'POST',
+    body: { nickname },
+  })
   localStorage.setItem(USER_KEY, JSON.stringify(data))
   return data
 }
 
 export async function signin(nickname) {
-  const { data, error } = await supabase
-    .from('users')
-    .select()
-    .eq('nickname', nickname)
-    .single()
-  if (error) throw new Error('Пользователь не найден')
+  const data = await request('/api/auth/signin', {
+    method: 'POST',
+    body: { nickname },
+    errorMessage: 'Пользователь не найден',
+  })
   localStorage.setItem(USER_KEY, JSON.stringify(data))
   return data
 }

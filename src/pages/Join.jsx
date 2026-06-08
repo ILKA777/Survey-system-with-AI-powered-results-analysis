@@ -130,7 +130,7 @@ export default function Join() {
   const handleAnswer = async (answer) => {
     const newAnswers = {
       ...answers,
-      [step]: { pageId: step + 1, ...answer },
+      [step]: { pageId: pages[step].id, ...answer },
     }
     setAnswers(newAnswers)
     setTextInput('')
@@ -140,7 +140,7 @@ export default function Join() {
       setStep(step + 1)
     } else {
       const formatted = Object.values(newAnswers)
-      await submitResponse(poll.id, formatted, nickname || null)
+      await submitResponse(roomCode, formatted, nickname || null)
 
       if (isPublicVote) {
         try {

@@ -4,7 +4,7 @@ import { usePoll } from '../context/PollContext'
 import { generatePoll } from '../api/ai.js'
 
 export default function CreatePoll() {
-  const { addPoll, templates, useTemplate } = usePoll()
+  const { addPoll, templates, useTemplate, loadPolls } = usePoll()
   const navigate = useNavigate()
   const [tab, setTab] = useState('manual')
   const [title, setTitle] = useState('')
@@ -56,8 +56,9 @@ export default function CreatePoll() {
     if (!aiPrompt.trim()) { setError('Введите описание'); return }
     setAiLoading(true); setError('')
     try {
-      const generated = await generatePoll(aiPrompt, 'SURVEY', 5)
-      const poll = await addPoll(generated)
+      // Бэкенд сразу создаёт и сохраняет опрос, возвращая готовый PollResponse.
+      const poll = await generatePoll(aiPrompt, 'SURVEY', 5)
+      await loadPolls()
       navigate(`/poll/${poll.id}`)
     } catch (e) {
       setError(e.message)

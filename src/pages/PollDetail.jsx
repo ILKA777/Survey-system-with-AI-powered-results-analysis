@@ -3,26 +3,29 @@ import { useParams } from 'react-router-dom'
 import { usePoll } from '../context/PollContext'
 import { publishPoll } from '../api/polls.js'
 import { getResults, exportJSON, exportCSV, downloadCSV } from '../api/results.js'
-import { summarize } from '../api/ai.js'
 import { QRCodeSVG } from 'qrcode.react'
 import { Copy, Download, QrCode, BrainResearch } from 'iconoir-react'
+
+// Бэк при недоступном AI возвращает строку-ошибку — её не показываем как анализ.
+function isValidSummary(text) {
+  return !!text && !text.startsWith('AI суммаризация недоступна')
+}
 
 export default function PollDetail() {
   const { id } = useParams()
   const { polls, loadPolls } = usePoll()
-  const poll = polls.find(p => p.id === id)
-  const [responses, setResponses] = useState([])
-  const [aiSummary, setAiSummary] = useState('')
-  const [aiLoading, setAiLoading] = useState(false)
+  const poll = polls.find(p => String(p.id) === id)
+  const [results, setResults] = useState({ rawResults: [], aiSummary: '' })
   const [showQR, setShowQR] = useState(false)
   const [copied, setCopied] = useState(false)
   const [publishing, setPublishing] = useState(false)
 
-  const joinLink = poll ? `${window.location.origin}/join/${poll.room_code}` : ''
+  const joinLink = poll ? `${window.location.origin}/join/${poll.roomCode}` : ''
+  const responses = results.rawResults || []
 
   useEffect(() => {
     if (!poll) return
-    getResults(poll.id).then(setResponses).catch(() => {})
+    getResults(poll.id).then(setResults).catch(() => {})
   }, [poll])
 
   const handleCopy = () => {
@@ -41,19 +44,9 @@ export default function PollDetail() {
     }
   }
 
-  const handleAI = async () => {
-    setAiLoading(true)
-    try {
-      const text = await summarize(poll, responses)
-      setAiSummary(text)
-    } finally {
-      setAiLoading(false)
-    }
-  }
-
   const handleDownloadCSV = async () => {
     const data = await exportJSON(id)
-    const csv = exportCSV(data.map(r => ({ ...r, answers: r.answers })), poll.pages || [])
+    const csv = exportCSV(data, poll.pages || [])
     downloadCSV(csv, `${poll.title}.csv`)
   }
 
@@ -83,7 +76,7 @@ export default function PollDetail() {
             {{ VOTE: 'Голосование', SURVEY: 'Опрос', QUIZ: 'Викторина' }[poll.type] || poll.type}
           </span>
           <span style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--text-3)' }}>
-            {new Date(poll.created_at).toLocaleDateString('ru-RU')}
+            {poll.createdAt ? new Date(poll.createdAt).toLocaleDateString('ru-RU') : ''}
           </span>
         </div>
         <h1 className="poll-detail-title">{poll.title}</h1>
@@ -98,7 +91,7 @@ export default function PollDetail() {
         <p className="share-box-label">Поделиться с участниками</p>
         <div style={{ marginBottom: '14px' }}>
           <p style={{ fontSize: '11px', color: 'var(--text-3)', fontFamily: 'var(--mono)', marginBottom: '6px' }}>Код комнаты</p>
-          <div className="room-code">{poll.room_code}</div>
+          <div className="room-code">{poll.roomCode}</div>
         </div>
         <div className="share-row">
           <input
@@ -120,9 +113,6 @@ export default function PollDetail() {
           <button className="btn btn-outline btn-sm" onClick={handleDownloadJSON}>
             <Download width={13} height={13} /> JSON
           </button>
-          <button className="btn btn-outline btn-sm" onClick={handleAI} disabled={aiLoading}>
-            <BrainResearch width={13} height={13} /> {aiLoading ? 'Анализирую...' : 'AI-анализ'}
-          </button>
         </div>
 
         {showQR && (
@@ -135,10 +125,10 @@ export default function PollDetail() {
         )}
       </div>
 
-      {aiSummary && (
+      {isValidSummary(results.aiSummary) && (
         <div className="ai-card">
           <p className="ai-card-title"><BrainResearch width={12} height={12} /> AI-анализ</p>
-          <p className="ai-card-text">{aiSummary}</p>
+          <p className="ai-card-text">{results.aiSummary}</p>
         </div>
       )}
 
@@ -152,9 +142,9 @@ export default function PollDetail() {
           </p>
         ) : (
           poll.pages?.map((page, i) => {
-            const answers = responses.map(r => r.answers.find(a => a.pageId === i + 1)).filter(Boolean)
+            const answers = responses.map(r => (r.answers || []).find(a => a.pageId === page.id)).filter(Boolean)
             return (
-              <div key={i} style={{ marginBottom: '20px' }}>
+              <div key={page.id ?? i} style={{ marginBottom: '20px' }}>
                 <p style={{ fontSize: '13px', fontWeight: 600, marginBottom: '10px', color: 'var(--text-2)' }}>
                   {i + 1}. {page.question}
                 </p>

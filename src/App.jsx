@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { usePoll } from './context/PollContext'
+import { FEATURES } from './config/features'
 import Dashboard from './pages/Dashboard'
 import CreatePoll from './pages/CreatePoll'
 import CreateVote from './pages/CreateVote'
@@ -31,7 +32,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/create/poll" element={<CreatePoll />} />
             <Route path="/create/vote" element={<CreateVote />} />
-            <Route path="/create/quiz" element={<CreateQuiz />} />
+            {FEATURES.quiz && <Route path="/create/quiz" element={<CreateQuiz />} />}
             <Route path="/poll/:id" element={<PollDetail />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/join/:roomCode" element={<Join />} />

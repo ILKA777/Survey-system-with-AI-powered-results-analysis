@@ -68,22 +68,11 @@ export function PollProvider({ children }) {
 
   const publish = async (id) => {
     const poll = await pollsApi.publishPoll(id)
-    setPolls(prev => prev.map(p => p.id === id ? poll : p))
+    setPolls(prev => prev.map(p => String(p.id) === String(id) ? poll : p))
     return poll
   }
 
-  const getPoll = (id) => polls.find(p => p.id === id) ?? null
-
-  const deletePoll = async (id) => {
-    await pollsApi.deletePoll(id)
-    setPolls(prev => prev.filter(p => p.id !== id))
-  }
-
-  const duplicatePoll = async (id) => {
-    const poll = await pollsApi.duplicatePoll(id)
-    setPolls(prev => [poll, ...prev])
-    return poll
-  }
+  const getPoll = (id) => polls.find(p => String(p.id) === String(id)) ?? null
 
   const useTemplate = async (template) => {
     const poll = await addPoll({
@@ -99,7 +88,7 @@ export function PollProvider({ children }) {
       user, setUser, signout,
       polls, loading, error, loadPolls,
       templates,
-      addPoll, publish, getPoll, deletePoll, duplicatePoll, useTemplate,
+      addPoll, publish, getPoll, useTemplate,
     }}>
       {children}
     </PollContext.Provider>
