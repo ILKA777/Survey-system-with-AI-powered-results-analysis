@@ -1,5 +1,12 @@
 # PulseRoom — Система опросов с AI-аналитикой
 
+Ссылка на таблицу работы команды по спринтам:
+
+https://docs.google.com/spreadsheets/d/1BkcZKUAzvsXprzzqZeOAhhJ30pCN3Rwnp7uRECx3dJU/edit?usp=sharing
+
+Ссылка на итоговый проект:
+
+https://pulseroom-five.vercel.app/
 
 React-фронтенд для платформы опросов и голосований с AI-генерацией вопросов и аналитикой результатов.
 
@@ -26,9 +33,6 @@ React-фронтенд для платформы опросов и голосо�
 ```bash
 npm install
 ```
-Ссылка на таблицу работы команды по спринтам:
-
-https://docs.google.com/spreadsheets/d/1BkcZKUAzvsXprzzqZeOAhhJ30pCN3Rwnp7uRECx3dJU/edit?gid=792090797#gid=792090797
 Фронт для проекта на React
 Что может:
 1. Окно входа
