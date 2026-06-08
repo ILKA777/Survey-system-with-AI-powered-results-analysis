@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePoll } from '../context/PollContext'
+import { FEATURES } from '../config/features'
 import { generatePoll } from '../api/ai.js'
 
 export default function CreatePoll() {
@@ -78,7 +79,9 @@ export default function CreatePoll() {
 
       <div className="tabs">
         <button className={`tab-btn ${tab === 'manual' ? 'active' : ''}`} onClick={() => setTab('manual')}>Вручную</button>
-        <button className={`tab-btn ${tab === 'ai' ? 'active' : ''}`} onClick={() => setTab('ai')}>AI-генерация</button>
+        {FEATURES.aiGenerate && (
+          <button className={`tab-btn ${tab === 'ai' ? 'active' : ''}`} onClick={() => setTab('ai')}>AI-генерация</button>
+        )}
         <button className={`tab-btn ${tab === 'template' ? 'active' : ''}`} onClick={() => setTab('template')}>Шаблон</button>
       </div>
 
@@ -127,7 +130,7 @@ export default function CreatePoll() {
         </>
       )}
 
-      {tab === 'ai' && (
+      {FEATURES.aiGenerate && tab === 'ai' && (
         <div className="form-card">
           <label className="form-label">Опишите опрос</label>
           <textarea
