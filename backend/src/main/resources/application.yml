@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/iipoll}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: ${PORT:8080}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+ai:
+  enabled: ${AI_ENABLED:true}
+  service-url: ${AI_SERVICE_URL:http://127.0.0.1:8082}
+  summarize-path: ${AI_SUMMARIZE_PATH:/summarize}
+  connect-timeout-ms: ${AI_CONNECT_TIMEOUT_MS:2500}
+  read-timeout-ms: ${AI_READ_TIMEOUT_MS:20000}

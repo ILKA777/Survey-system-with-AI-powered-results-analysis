@@ -1,0 +1,38 @@
+databases:
+  - name: iipoll-db
+    databaseName: iipoll
+    user: iipoll_user
+    plan: free
+
+services:
+  - type: web
+    name: iipoll-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /swagger-ui.html
+    envVars:
+      - key: DB_HOST
+        fromDatabase:
+          name: iipoll-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: iipoll-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: iipoll-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: iipoll-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: iipoll-db
+          property: password
+      - key: AI_ENABLED
+        value: "false"
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
